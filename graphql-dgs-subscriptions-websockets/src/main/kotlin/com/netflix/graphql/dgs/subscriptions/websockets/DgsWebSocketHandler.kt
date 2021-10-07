@@ -31,11 +31,13 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import javax.annotation.PostConstruct
+import javax.annotation.PreDestroy
 
 class DgsWebSocketHandler(private val dgsQueryExecutor: DgsQueryExecutor) : TextWebSocketHandler() {
 
     internal val subscriptions = ConcurrentHashMap<String, MutableMap<String, Subscription>>()
     internal val sessions = CopyOnWriteArrayList<WebSocketSession>()
+    private val timer = Timer(true)
 
     @PostConstruct
     fun setupCleanup() {
@@ -44,9 +46,13 @@ class DgsWebSocketHandler(private val dgsQueryExecutor: DgsQueryExecutor) : Text
                 sessions.filter { !it.isOpen }.forEach(this@DgsWebSocketHandler::cleanupSubscriptionsForSession)
             }
         }
-
-        val timer = Timer(true)
         timer.scheduleAtFixedRate(timerTask, 0, 5000)
+    }
+
+    @PreDestroy
+    fun stopTimer() {
+        this.timer.cancel()
+        this.timer.purge()
     }
 
     public override fun handleTextMessage(session: WebSocketSession, message: TextMessage) {
